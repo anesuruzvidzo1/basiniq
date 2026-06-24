@@ -2,7 +2,7 @@
 
 Natural language queries over Alberta Energy Regulator directives and well license data. Type a question, get a structured answer with page-level citations from the relevant directives.
 
-**Live demo:** https://basiniq.vercel.app
+**Live demo:** https://basiniq-sigma.vercel.app
 
 ## How it works
 
