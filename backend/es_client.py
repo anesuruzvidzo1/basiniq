@@ -26,3 +26,5 @@ async def init_es():
             pass
         else:
             raise
+    except Exception as e:
+        print(f"Elasticsearch unavailable — BM25 disabled, using vector search only: {e}")

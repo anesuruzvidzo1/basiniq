@@ -6,23 +6,26 @@ from es_client import es, INDEX_NAME
 
 
 async def bm25_search(query: str, top_k: int = 20) -> list[dict]:
-    response = await es.search(
-        index=INDEX_NAME,
-        query={"match": {"chunk_text": query}},
-        size=top_k,
-        source=["chunk_text", "document_name", "chunk_index", "page_number", "pg_chunk_id"],
-    )
-    results = []
-    for hit in response["hits"]["hits"]:
-        src = hit["_source"]
-        results.append({
-            "pg_chunk_id": src["pg_chunk_id"],
-            "chunk_text": src["chunk_text"],
-            "document_name": src["document_name"],
-            "chunk_index": src.get("chunk_index", 0),
-            "page_number": src.get("page_number", 1),
-        })
-    return results
+    try:
+        response = await es.search(
+            index=INDEX_NAME,
+            query={"match": {"chunk_text": query}},
+            size=top_k,
+            source=["chunk_text", "document_name", "chunk_index", "page_number", "pg_chunk_id"],
+        )
+        results = []
+        for hit in response["hits"]["hits"]:
+            src = hit["_source"]
+            results.append({
+                "pg_chunk_id": src["pg_chunk_id"],
+                "chunk_text": src["chunk_text"],
+                "document_name": src["document_name"],
+                "chunk_index": src.get("chunk_index", 0),
+                "page_number": src.get("page_number", 1),
+            })
+        return results
+    except Exception:
+        return []
 
 
 async def dense_search(query: str, bi_encoder: SentenceTransformer, top_k: int = 20) -> list[dict]:
