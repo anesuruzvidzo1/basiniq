@@ -83,3 +83,7 @@ async def init_db():
         await conn.execute(text(
             "ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS page_number INTEGER DEFAULT 1"
         ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_doc_chunks_fts "
+            "ON document_chunks USING GIN (to_tsvector('english', chunk_text))"
+        ))

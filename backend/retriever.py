@@ -2,28 +2,32 @@ import asyncio
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sqlalchemy import text
 from db import AsyncSessionLocal
-from es_client import es, INDEX_NAME
 
 
 async def bm25_search(query: str, top_k: int = 20) -> list[dict]:
     try:
-        response = await es.search(
-            index=INDEX_NAME,
-            query={"match": {"chunk_text": query}},
-            size=top_k,
-            source=["chunk_text", "document_name", "chunk_index", "page_number", "pg_chunk_id"],
-        )
-        results = []
-        for hit in response["hits"]["hits"]:
-            src = hit["_source"]
-            results.append({
-                "pg_chunk_id": src["pg_chunk_id"],
-                "chunk_text": src["chunk_text"],
-                "document_name": src["document_name"],
-                "chunk_index": src.get("chunk_index", 0),
-                "page_number": src.get("page_number", 1),
-            })
-        return results
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                text("""
+                    SELECT id, chunk_text, document_name, chunk_index, page_number
+                    FROM document_chunks, websearch_to_tsquery('english', :query) q
+                    WHERE to_tsvector('english', chunk_text) @@ q
+                    ORDER BY ts_rank_cd(to_tsvector('english', chunk_text), q) DESC
+                    LIMIT :limit
+                """),
+                {"query": query, "limit": top_k},
+            )
+            rows = result.fetchall()
+        return [
+            {
+                "pg_chunk_id": row.id,
+                "chunk_text": row.chunk_text,
+                "document_name": row.document_name,
+                "chunk_index": row.chunk_index,
+                "page_number": row.page_number or 1,
+            }
+            for row in rows
+        ]
     except Exception:
         return []
 

@@ -144,8 +144,7 @@ function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const apiUrl = "/api";
 
   // Load sessions from localStorage
   useEffect(() => {

@@ -2,14 +2,16 @@ import os
 import asyncio
 import uuid
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import select
 from sentence_transformers import SentenceTransformer, CrossEncoder
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from db import init_db, AsyncSessionLocal, Session
-from es_client import init_es
 from router import route_query
 
 
@@ -31,14 +33,23 @@ async def _auto_setup(bi_encoder: SentenceTransformer):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    await init_es()
     app.state.bi_encoder = SentenceTransformer("all-MiniLM-L6-v2")
     app.state.cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
     asyncio.create_task(_auto_setup(app.state.bi_encoder))
     yield
 
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="BasinIQ API", version="0.1.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+_API_KEY = os.getenv("BASINIQ_API_KEY")
+
+
+async def _require_api_key(x_api_key: str | None = Header(None)):
+    if _API_KEY and x_api_key != _API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 _allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
@@ -59,7 +70,8 @@ async def health():
 
 
 @app.post("/query")
-async def query(request: Request):
+@limiter.limit("10/minute")
+async def query(request: Request, _: None = Depends(_require_api_key)):
     body = await request.json()
     question = body.get("question", "").strip()
     session_id = body.get("session_id")
