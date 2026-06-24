@@ -246,6 +246,8 @@ function ChatInterface() {
                 setSessionId(finalSessionId);
                 saveSession(finalSessionId, question);
               }
+            } else if (evt.type === "error") {
+              fullText = `Error: ${evt.message ?? "Unknown error"}`;
             }
           } catch {}
         }

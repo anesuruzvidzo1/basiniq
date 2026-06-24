@@ -22,6 +22,14 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify(body),
   });
 
+  if (!upstream.ok) {
+    const msg = `Backend error ${upstream.status}`;
+    return new Response(
+      `data: ${JSON.stringify({ type: "error", message: msg })}\n\n`,
+      { status: 200, headers: { "Content-Type": "text/event-stream" } }
+    );
+  }
+
   return new Response(upstream.body, {
     headers: {
       "Content-Type": "text/event-stream",
