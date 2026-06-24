@@ -1,4 +1,5 @@
 import os
+import json
 import anthropic
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sqlalchemy import text
@@ -80,6 +81,7 @@ You have access to:
 
 Guidelines:
 - Begin every response with a direct answer in the first sentence. Never start with "Based on", "According to", "Based on the search results", or any similar preamble.
+- When calling a tool, output the tool call immediately. Do not write any text before a tool call.
 - Use query_wells for quantitative or structured questions about wells and production.
 - Use search_documents for questions about regulations, directives, or compliance.
 - Use both tools when a question requires both data and regulatory context.
@@ -173,3 +175,119 @@ async def route_query(
         messages.append({"role": "user", "content": tool_results})
 
     return {"answer": "Unable to process query.", "sources": []}
+
+
+async def stream_query(
+    question: str,
+    bi_encoder: SentenceTransformer,
+    cross_encoder: CrossEncoder,
+    history: list[dict] | None = None,
+):
+    messages = (history or []) + [{"role": "user", "content": question}]
+    sources: list[str] = []
+    tools_used: set[str] = set()
+    answer_parts: list[str] = []
+
+    while True:
+        text_tokens: list[str] = []
+        tool_blocks: list[dict] = []
+        current_tool_id: str | None = None
+        current_tool_name: str | None = None
+        current_tool_json: str = ""
+        seen_tool_use: bool = False
+
+        try:
+            async with client.messages.stream(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2048,
+                system=SYSTEM_PROMPT,
+                tools=TOOLS,
+                messages=messages,
+            ) as stream:
+                async for event in stream:
+                    if event.type == "content_block_start":
+                        if event.content_block.type == "tool_use":
+                            seen_tool_use = True
+                            current_tool_id = event.content_block.id
+                            current_tool_name = event.content_block.name
+                            current_tool_json = ""
+
+                    elif event.type == "content_block_delta":
+                        if event.delta.type == "text_delta":
+                            token = event.delta.text
+                            text_tokens.append(token)
+                            if not seen_tool_use:
+                                yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
+                        elif event.delta.type == "input_json_delta":
+                            current_tool_json += event.delta.partial_json
+
+                    elif event.type == "content_block_stop":
+                        if current_tool_id:
+                            try:
+                                parsed_input = json.loads(current_tool_json)
+                            except Exception:
+                                parsed_input = {}
+                            tool_blocks.append({
+                                "id": current_tool_id,
+                                "name": current_tool_name,
+                                "input": parsed_input,
+                            })
+                            current_tool_id = None
+                            current_tool_json = ""
+
+                final_msg = await stream.get_final_message()
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            return
+
+        if final_msg.stop_reason == "end_turn":
+            answer_parts.extend(text_tokens)
+            yield f"data: {json.dumps({'type': 'done', 'sources': sources, 'tools_used': list(tools_used), 'answer': ''.join(answer_parts)})}\n\n"
+            return
+
+        if final_msg.stop_reason != "tool_use":
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Unexpected stop reason'})}\n\n"
+            return
+
+        content_for_messages = []
+        tool_results_for_messages = []
+
+        for tb in tool_blocks:
+            content_for_messages.append({
+                "type": "tool_use",
+                "id": tb["id"],
+                "name": tb["name"],
+                "input": tb["input"],
+            })
+
+            if tb["name"] == "query_wells":
+                tools_used.add("sql")
+                result_text = await run_sql(tb["input"].get("sql", ""))
+                tool_results_for_messages.append({
+                    "type": "tool_result",
+                    "tool_use_id": tb["id"],
+                    "content": result_text,
+                })
+
+            elif tb["name"] == "search_documents":
+                tools_used.add("documents")
+                chunks = await hybrid_search(
+                    tb["input"].get("query", ""), bi_encoder, cross_encoder
+                )
+                formatted = "\n\n".join(
+                    f"[{c['document_name']}, Page {c.get('page_number', 1)}]\n{c['chunk_text']}"
+                    for c in chunks
+                )
+                for c in chunks:
+                    citation = f"{c['document_name']}, Page {c.get('page_number', 1)}"
+                    if citation not in sources:
+                        sources.append(citation)
+                tool_results_for_messages.append({
+                    "type": "tool_result",
+                    "tool_use_id": tb["id"],
+                    "content": formatted or "No relevant documents found.",
+                })
+
+        messages.append({"role": "assistant", "content": content_for_messages})
+        messages.append({"role": "user", "content": tool_results_for_messages})

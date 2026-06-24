@@ -140,6 +140,7 @@ function ChatInterface() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -199,30 +200,65 @@ function ChatInterface() {
       { role: "user", content: question, sources: [] },
     ]);
     setLoading(true);
+    setStreamingContent(null);
 
     try {
       const body: Record<string, string> = { question };
       if (sessionId) body.session_id = sessionId;
 
-      const res = await fetch(`${apiUrl}/query`, {
+      const res = await fetch(`${apiUrl}/query/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
 
-      if (!sessionId) {
-        setSessionId(data.session_id);
-        saveSession(data.session_id, question);
+      if (!res.ok || !res.body) throw new Error("Stream failed");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = "";
+      let finalSources: string[] = [];
+      let finalToolsUsed: string[] = [];
+      let finalSessionId = sessionId;
+
+      setLoading(false);
+      setStreamingContent("");
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const raw = decoder.decode(value, { stream: true });
+        for (const line of raw.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (!payload) continue;
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === "token") {
+              fullText += evt.text;
+              setStreamingContent(fullText);
+            } else if (evt.type === "done") {
+              finalSources = evt.sources ?? [];
+              finalToolsUsed = evt.tools_used ?? [];
+              finalSessionId = evt.session_id ?? sessionId;
+              if (!sessionId && finalSessionId) {
+                setSessionId(finalSessionId);
+                saveSession(finalSessionId, question);
+              }
+            }
+          } catch {}
+        }
       }
 
+      setStreamingContent(null);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: data.answer,
-          sources: data.sources ?? [],
-          toolsUsed: data.tools_used ?? [],
+          content: fullText || "Unable to process query.",
+          sources: finalSources,
+          toolsUsed: finalToolsUsed,
         },
       ]);
     } catch {
@@ -231,12 +267,13 @@ function ChatInterface() {
         {
           role: "assistant",
           content:
-            "Unable to reach the BasinIQ API. Make sure the backend is running on port 8000.",
+            "Unable to reach the BasinIQ API. Make sure the backend is running.",
           sources: [],
         },
       ]);
     } finally {
       setLoading(false);
+      setStreamingContent(null);
     }
   };
 
@@ -408,8 +445,8 @@ function ChatInterface() {
                 )
               )}
 
-              {/* Loading dots */}
-              {loading && (
+              {/* Loading dots while waiting for stream to start */}
+              {(loading || streamingContent === "") && (
                 <div className="bg-log-surface border border-grid rounded-sm px-5 py-4">
                   <div className="flex items-center gap-1.5">
                     {[0, 1, 2].map((i) => (
@@ -420,6 +457,19 @@ function ChatInterface() {
                       />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Streaming text as it arrives */}
+              {streamingContent !== null && streamingContent !== "" && (
+                <div className="space-y-1.5">
+                  <div className="bg-log-surface border border-grid rounded-sm px-5 py-4">
+                    <MarkdownContent content={streamingContent} />
+                  </div>
+                  <p className="text-xs text-muted/40 px-1">
+                    Based on ingested AER directive versions. Verify directly
+                    with AER for compliance decisions.
+                  </p>
                 </div>
               )}
 
