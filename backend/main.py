@@ -1,3 +1,4 @@
+import os
 import uuid
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -21,9 +22,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BasinIQ API", version="0.1.0", lifespan=lifespan)
 
+_allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://localhost:3001",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "https://*.vercel.app"],
+    allow_origins=_allowed_origins,
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["Content-Type"],
 )

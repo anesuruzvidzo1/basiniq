@@ -5,12 +5,19 @@ from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
 import os
 
-DATABASE_URL = (
-    f"postgresql+asyncpg://"
-    f"{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
-    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}"
-    f"/{os.getenv('POSTGRES_DB')}"
-)
+_raw_url = os.getenv("DATABASE_URL")
+if _raw_url:
+    # Railway/Supabase provide postgresql:// — asyncpg needs postgresql+asyncpg://
+    DATABASE_URL = _raw_url.replace("postgres://", "postgresql+asyncpg://", 1).replace(
+        "postgresql://", "postgresql+asyncpg://", 1
+    )
+else:
+    DATABASE_URL = (
+        f"postgresql+asyncpg://"
+        f"{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+        f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}"
+        f"/{os.getenv('POSTGRES_DB')}"
+    )
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
