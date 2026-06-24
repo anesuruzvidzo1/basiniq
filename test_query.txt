@@ -1,0 +1,21 @@
+## Single queries (run any line individually)
+
+curl -s -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"question": "What are the noise control requirements for well sites near residences?"}' | python3 -m json.tool
+
+
+curl -s -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"question": "How many active Montney wells are there?"}' | python3 -m json.tool
+
+curl -s -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"question": "What are the flaring requirements in Alberta?"}' | python3 -m json.tool
+
+curl -s -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"question": "How many active Montney wells does Tourmaline have, and what does the AER say about flaring in that formation?"}' | python3 -m json.tool
+
+
+## Multi-turn conversation test (paste this entire block at once)
+
+RESPONSE=$(curl -s -X POST http://localhost:8000/query -H "Content-Type: application/json" -d '{"question": "How many active Montney wells does Tourmaline have?"}')
+SESSION_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['session_id'])")
+echo "Turn 1 answer:" && echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['answer'])"
+echo "---"
+echo "Session ID: $SESSION_ID"
+echo "---"
+curl -s -X POST http://localhost:8000/query -H "Content-Type: application/json" -d "{\"question\": \"What are the flaring rules that apply to those wells?\", \"session_id\": \"$SESSION_ID\"}" | python3 -m json.tool

@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+asyncpg
+sqlalchemy[asyncio]
+pgvector
+anthropic
+elasticsearch[async]==8.13.2
+pypdf
+sentence-transformers
+python-dotenv
+psycopg2-binary
+python-multipart

@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fonts */
+  --font-lora: var(--lora);
+  --font-sans: var(--inter);
+
+  /* Well log palette */
+  --color-log-dark: #2C1810;
+  --color-log-cream: #FEFCF7;
+  --color-log-surface: #FFFFFF;
+  --color-montney: #1A4A6B;
+  --color-montney-light: #2B6694;
+  --color-marker: #8B3A1A;
+  --color-perf: #4A7A3A;
+  --color-body: #1A1208;
+  --color-muted: #7A6A5A;
+  --color-sidebar-text: #F5EDD8;
+  --color-grid: #E8E0D0;
+  --color-well-active: #3D7A52;
+  --color-well-suspended: #A06B1A;
+  --color-well-abandoned: #7A6A5A;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: #FEFCF7;
+  color: #1A1208;
+}
