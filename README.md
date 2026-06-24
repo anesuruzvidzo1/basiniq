@@ -1,42 +1,29 @@
 # BasinIQ
 
-A RAG system built for Alberta's upstream energy sector. Ask questions in plain English — get structured answers with page-level citations sourced from AER regulatory directives and well license data.
+Natural language queries over Alberta Energy Regulator directives and well license data. Type a question, get a structured answer with page-level citations from the relevant directives.
 
-Built as a portfolio project to demonstrate production-quality retrieval architecture in a domain where precision and citation matter. Live demo at [basiniq.vercel.app](https://basiniq.vercel.app).
-
----
+**Live demo:** https://basiniq.vercel.app
 
 ## How it works
 
-A query like "How many active Montney wells does Tourmaline have, and what flaring rules apply?" triggers a Claude tool use loop with two tools wired in:
+A query triggers a Claude tool use loop with two tools wired in:
 
-- `query_wells` runs a SQL SELECT against a PostgreSQL database of licensed wells and production records
-- `search_documents` runs hybrid retrieval over AER directive text
+`query_wells` runs a SQL SELECT against a PostgreSQL database of licensed wells and production records across Alberta formations and licensees.
 
-Hybrid retrieval combines BM25 keyword search (Elasticsearch) and dense vector search (pgvector, 384-dim cosine similarity), merges results using Reciprocal Rank Fusion, then reranks the top candidates with a cross-encoder. Top 5 chunks go to Claude as tool results. Multi-turn sessions are tracked in PostgreSQL JSONB — follow-up questions carry full context without restating it.
+`search_documents` runs hybrid retrieval over AER directive text — Elasticsearch BM25 and pgvector dense search merged via Reciprocal Rank Fusion, then reranked by a cross encoder. Top 5 chunks go to Claude as tool results.
 
-The frontend is a three-column layout: session sidebar, chat, and a live context panel showing which directive pages were cited.
-
----
+Multi-turn sessions are tracked in PostgreSQL JSONB. Follow-up questions carry full context without restating it. The frontend is a three-column layout: session sidebar, chat, and a live context panel showing which directive pages were cited.
 
 ## Retrieval pipeline
 
 ```
 Query
-  │
   ├── Elasticsearch (BM25)
   ├── pgvector (cosine, all-MiniLM-L6-v2)
-  │
   └── Reciprocal Rank Fusion
-        │
-        └── ms-marco-MiniLM-L-6-v2 (cross-encoder rerank)
-              │
-              └── Top 5 chunks → Claude tool use loop
-                    │
-                    └── Structured answer with citations
+        └── ms-marco-MiniLM-L-6-v2 (cross encoder rerank)
+              └── Top 5 chunks to Claude tool use loop
 ```
-
----
 
 ## Stack
 
@@ -48,11 +35,9 @@ Query
 | Keyword search | Elasticsearch 8.13, BM25, English analyzer |
 | Embeddings | all-MiniLM-L6-v2 |
 | Reranking | ms-marco-MiniLM-L-6-v2 |
-| LLM | Claude (tool use agentic loop) |
+| LLM | Claude tool use agentic loop |
 | Database | PostgreSQL 16 |
 | Infrastructure | Docker Compose |
-
----
 
 ## AER directives indexed
 
@@ -67,9 +52,7 @@ Query
 | 071 | Emergency Preparedness and Response |
 | 083 | Measurement Requirements for Oil and Gas Operations |
 
-392 indexed chunks across 8 directives. Well data is synthetic (200+ wells, 2,520 production records across Peace River, Pembina, Foothills, Red Deer, and Lloydminster).
-
----
+392 indexed chunks across 8 directives. Well data is synthetic — 200 plus wells, 2,520 production records across Peace River, Pembina, Foothills, Red Deer, and Lloydminster.
 
 ## Run locally
 
@@ -115,25 +98,21 @@ npm run dev
 
 Open `http://localhost:3000`.
 
----
+## Deployment
 
-## Deployment (Railway + Vercel)
-
-The root-level `Dockerfile` builds both the backend code and the data directory into one image, so Railway can run it without a separate volume mount.
+The root-level `Dockerfile` builds the backend code and data directory into one image so Railway can run it without a separate volume mount.
 
 Set these environment variables in Railway:
 
 ```
 ANTHROPIC_API_KEY=...
-ELASTICSEARCH_URL=...       # Bonsai.io free tier works
+ELASTICSEARCH_URL=...
 ALLOWED_ORIGINS=https://your-frontend.vercel.app
-DATABASE_URL                # auto-wired by Railway PostgreSQL plugin
+DATABASE_URL=...
 ```
 
-Deploy frontend to Vercel with `NEXT_PUBLIC_API_URL` set to the Railway service URL.
+Deploy the frontend to Vercel with `NEXT_PUBLIC_API_URL` set to the Railway service URL.
 
----
-
-Well data is synthetic. Directive text is from public AER documents. Not a compliance tool — verify all regulatory requirements directly with the AER before making any compliance decisions.
+Well data is synthetic. Directive text is from public AER documents. Not a compliance tool — verify all regulatory requirements directly with the AER.
 
 Built by [Anesu Ruzvidzo](https://github.com/anesuruzvidzo1)
