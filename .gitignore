@@ -18,3 +18,4 @@ out/
 
 # Data — CSVs excluded, PDFs are public AER documents and are included
 data/*.csv
+.vercel

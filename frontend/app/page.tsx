@@ -118,7 +118,7 @@ export default function LandingPage() {
 
           {/* Attribution */}
           <p className="text-sidebar-text/25 text-xs">
-            Powered by Claude · pgvector · Elasticsearch
+            Powered by Claude · pgvector · PostgreSQL
           </p>
         </div>
 
