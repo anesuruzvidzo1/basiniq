@@ -75,18 +75,21 @@ async def ingest_pdf(pdf_path: str, model: SentenceTransformer):
             pg_ids.append((db_chunk.id, chunk["page"]))
         await session.commit()
 
-    for i, (chunk, (pg_id, page_num)) in enumerate(zip(chunks, pg_ids)):
-        await es.index(
-            index=INDEX_NAME,
-            document={
-                "document_name": doc_name,
-                "document_type": "directive",
-                "chunk_index": i,
-                "page_number": page_num,
-                "chunk_text": chunk["text"],
-                "pg_chunk_id": pg_id,
-            },
-        )
+    try:
+        for i, (chunk, (pg_id, page_num)) in enumerate(zip(chunks, pg_ids)):
+            await es.index(
+                index=INDEX_NAME,
+                document={
+                    "document_name": doc_name,
+                    "document_type": "directive",
+                    "chunk_index": i,
+                    "page_number": page_num,
+                    "chunk_text": chunk["text"],
+                    "pg_chunk_id": pg_id,
+                },
+            )
+    except Exception:
+        print(f"  Elasticsearch unavailable — skipping BM25 index for {doc_name}.")
 
     print(f"  Done. {len(chunks)} chunks stored with page numbers.")
 
