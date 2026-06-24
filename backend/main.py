@@ -1,5 +1,7 @@
 import os
+import asyncio
 import uuid
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,12 +13,28 @@ from es_client import init_es
 from router import route_query
 
 
+async def _auto_setup(bi_encoder: SentenceTransformer):
+    from seed import seed
+    from ingest_docs import ingest_pdf
+
+    await seed()
+
+    pdfs = sorted(Path("/data").glob("*.pdf"))
+    if not pdfs:
+        print("No PDFs found in /data — skipping ingest.")
+        return
+    for pdf_path in pdfs:
+        await ingest_pdf(str(pdf_path), bi_encoder)
+    print("Auto-setup complete.")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await init_es()
     app.state.bi_encoder = SentenceTransformer("all-MiniLM-L6-v2")
     app.state.cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    asyncio.create_task(_auto_setup(app.state.bi_encoder))
     yield
 
 
