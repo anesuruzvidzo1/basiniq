@@ -1,7 +1,8 @@
 import asyncio
-from sentence_transformers import SentenceTransformer, CrossEncoder
-from sqlalchemy import text
+
 from db import AsyncSessionLocal
+from sentence_transformers import CrossEncoder, SentenceTransformer
+from sqlalchemy import text
 
 
 async def bm25_search(query: str, top_k: int = 20) -> list[dict]:
@@ -89,7 +90,7 @@ async def rerank(
     pairs = [(query, c["chunk_text"]) for c in candidates]
     loop = asyncio.get_event_loop()
     scores = await loop.run_in_executor(None, lambda: cross_encoder.predict(pairs))
-    ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
+    ranked = sorted(zip(candidates, scores, strict=True), key=lambda x: x[1], reverse=True)
     return [c for c, _ in ranked[:top_n]]
 
 

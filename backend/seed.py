@@ -1,8 +1,9 @@
 import asyncio
 import random
 from datetime import date, timedelta
+
+from db import AsyncSessionLocal, Well, WellProduction, init_db
 from sqlalchemy import text
-from db import engine, AsyncSessionLocal, init_db, Well, WellProduction
 
 random.seed(42)
 

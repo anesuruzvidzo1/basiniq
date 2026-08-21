@@ -4,11 +4,11 @@ Integration tests for the FastAPI endpoints.
 These tests mock the DB, models, and Claude client so no live infrastructure
 is needed. Run with:  pytest tests/test_api.py -v
 """
-import sys
 import os
-import json
-import pytest
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
@@ -28,10 +28,13 @@ def client():
         patch("main._auto_setup", new_callable=AsyncMock),
         patch("db.engine"),
         patch("main.asyncio.create_task"),
+        # lifespan runs inside the TestClient context and reassigns these, so
+        # patch the classes themselves. Setting app.state afterwards is not
+        # enough and previously caused every run to download real models.
+        patch("main.SentenceTransformer"),
+        patch("main.CrossEncoder"),
     ):
         from main import app
-        app.state.bi_encoder = MagicMock()
-        app.state.cross_encoder = MagicMock()
         with TestClient(app, raise_server_exceptions=False) as c:
             yield c
 
@@ -64,7 +67,6 @@ class TestAuth:
         # BASINIQ_API_KEY not set → auth check is skipped
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("BASINIQ_API_KEY", None)
-            import importlib
             import main as m
             m._API_KEY = None
             with (

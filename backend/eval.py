@@ -13,9 +13,10 @@ document_chunks populated (i.e. after auto-setup completes).
 
 import asyncio
 import math
+
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer, CrossEncoder
 from retriever import hybrid_search
+from sentence_transformers import CrossEncoder, SentenceTransformer
 
 load_dotenv()
 

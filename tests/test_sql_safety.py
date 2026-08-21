@@ -1,14 +1,14 @@
 """Tests for SQL injection prevention in the query_wells tool."""
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
-
-# Import only the pure function, no DB connection needed
-def _select_only(sql: str) -> bool:
-    return sql.strip().upper().startswith("SELECT")
+# Import the real guard rather than restating it. A local copy would keep these
+# tests green even if the production check changed.
+from sql_guard import is_select_only as _select_only  # noqa: E402
 
 
 @pytest.mark.parametrize("sql,expected", [

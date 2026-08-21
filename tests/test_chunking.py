@@ -1,5 +1,4 @@
 """Unit tests for PDF chunking logic in ingest_docs.py."""
-import pytest
 
 CHUNK_SIZE = 500
 OVERLAP = 50

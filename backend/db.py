@@ -1,9 +1,10 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy import Column, Integer, String, Float, Date, Text, ForeignKey, text
-from sqlalchemy.dialects.postgresql import JSONB
-from pgvector.sqlalchemy import Vector
 import os
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, Date, Float, ForeignKey, Integer, String, Text, text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 _raw_url = os.getenv("DATABASE_URL")
 if _raw_url:

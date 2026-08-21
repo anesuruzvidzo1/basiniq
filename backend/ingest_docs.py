@@ -1,10 +1,11 @@
 import asyncio
 from pathlib import Path
+
+from db import AsyncSessionLocal, DocumentChunk, init_db
+from es_client import INDEX_NAME, es, init_es
 from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import text
-from db import AsyncSessionLocal, init_db, DocumentChunk
-from es_client import es, init_es, INDEX_NAME
 
 CHUNK_SIZE = 500
 OVERLAP = 50
@@ -49,7 +50,7 @@ async def ingest_pdf(pdf_path: str, model: SentenceTransformer):
             {"name": doc_name},
         )
         if result.scalar() > 0:
-            print(f"  Already ingested — skipping.")
+            print("  Already ingested — skipping.")
             return
 
     pages = parse_pdf_with_pages(pdf_path)
@@ -61,7 +62,7 @@ async def ingest_pdf(pdf_path: str, model: SentenceTransformer):
 
     async with AsyncSessionLocal() as session:
         pg_ids = []
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True)):
             db_chunk = DocumentChunk(
                 document_name=doc_name,
                 document_type="directive",
@@ -76,7 +77,7 @@ async def ingest_pdf(pdf_path: str, model: SentenceTransformer):
         await session.commit()
 
     try:
-        for i, (chunk, (pg_id, page_num)) in enumerate(zip(chunks, pg_ids)):
+        for i, (chunk, (pg_id, page_num)) in enumerate(zip(chunks, pg_ids, strict=True)):
             await es.index(
                 index=INDEX_NAME,
                 document={

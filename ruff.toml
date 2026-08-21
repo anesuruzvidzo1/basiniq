@@ -1,0 +1,10 @@
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[lint.per-file-ignores]
+# Long lines here are inside the model system prompt and an SSE payload string.
+# Wrapping the prompt would change the text the model actually receives.
+"backend/router.py" = ["E501"]

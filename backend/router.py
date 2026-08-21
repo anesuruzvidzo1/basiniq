@@ -1,10 +1,12 @@
-import os
 import json
+import os
+
 import anthropic
-from sentence_transformers import SentenceTransformer, CrossEncoder
-from sqlalchemy import text
 from db import AsyncSessionLocal
 from retriever import hybrid_search
+from sentence_transformers import CrossEncoder, SentenceTransformer
+from sql_guard import is_select_only
+from sqlalchemy import text
 
 client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -92,7 +94,7 @@ Guidelines:
 
 
 async def run_sql(sql: str) -> str:
-    if not sql.strip().upper().startswith("SELECT"):
+    if not is_select_only(sql):
         return "Error: only SELECT queries are permitted."
     try:
         async with AsyncSessionLocal() as session:
@@ -221,19 +223,18 @@ async def stream_query(
                         elif event.delta.type == "input_json_delta":
                             current_tool_json += event.delta.partial_json
 
-                    elif event.type == "content_block_stop":
-                        if current_tool_id:
-                            try:
-                                parsed_input = json.loads(current_tool_json)
-                            except Exception:
-                                parsed_input = {}
-                            tool_blocks.append({
-                                "id": current_tool_id,
-                                "name": current_tool_name,
-                                "input": parsed_input,
-                            })
-                            current_tool_id = None
-                            current_tool_json = ""
+                    elif event.type == "content_block_stop" and current_tool_id:
+                        try:
+                            parsed_input = json.loads(current_tool_json)
+                        except Exception:
+                            parsed_input = {}
+                        tool_blocks.append({
+                            "id": current_tool_id,
+                            "name": current_tool_name,
+                            "input": parsed_input,
+                        })
+                        current_tool_id = None
+                        current_tool_json = ""
 
                 final_msg = await stream.get_final_message()
 

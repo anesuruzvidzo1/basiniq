@@ -1,5 +1,4 @@
 """Unit tests for retrieval functions that don't need a live DB."""
-import pytest
 
 
 def reciprocal_rank_fusion(
