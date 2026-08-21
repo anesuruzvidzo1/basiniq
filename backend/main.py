@@ -74,7 +74,12 @@ async def health():
 @app.post("/query")
 @limiter.limit("10/minute")
 async def query(request: Request, _: None = Depends(_require_api_key)):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except ValueError:
+        return JSONResponse({"error": "request body must be valid JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "request body must be a JSON object"}, status_code=400)
     question = body.get("question", "").strip()
     session_id = body.get("session_id")
 
@@ -119,7 +124,12 @@ async def query(request: Request, _: None = Depends(_require_api_key)):
 @app.post("/query/stream")
 @limiter.limit("10/minute")
 async def query_stream(request: Request, _: None = Depends(_require_api_key)):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except ValueError:
+        return JSONResponse({"error": "request body must be valid JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "request body must be a JSON object"}, status_code=400)
     question = body.get("question", "").strip()
     session_id = body.get("session_id")
 
