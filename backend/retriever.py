@@ -29,7 +29,10 @@ async def bm25_search(query: str, top_k: int = 20) -> list[dict]:
             }
             for row in rows
         ]
-    except Exception:
+    except Exception as exc:
+        # Degrade to dense-only rather than failing the query, but say so. A silent
+        # empty result here turns hybrid retrieval into vector-only with no signal.
+        print(f"  BM25 search failed, falling back to dense-only retrieval: {exc!r}")
         return []
 
 

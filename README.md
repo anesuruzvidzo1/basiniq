@@ -10,7 +10,7 @@ A query triggers a Claude tool use loop with two tools wired in:
 
 `query_wells` runs a SQL SELECT against a PostgreSQL database of licensed wells and production records across Alberta formations and licensees.
 
-`search_documents` runs hybrid retrieval over AER directive text — Elasticsearch BM25 and pgvector dense search merged via Reciprocal Rank Fusion, then reranked by a cross encoder. Top 5 chunks go to Claude as tool results.
+`search_documents` runs hybrid retrieval over AER directive text — PostgreSQL full-text search (BM25-style `ts_rank_cd`) and pgvector dense search merged via Reciprocal Rank Fusion, then reranked by a cross encoder. Top 5 chunks go to Claude as tool results.
 
 Multi-turn sessions are tracked in PostgreSQL JSONB. Follow-up questions carry full context without restating it. The frontend is a three-column layout: session sidebar, chat, and a live context panel showing which directive pages were cited.
 
@@ -18,7 +18,7 @@ Multi-turn sessions are tracked in PostgreSQL JSONB. Follow-up questions carry f
 
 ```
 Query
-  ├── Elasticsearch (BM25)
+  ├── PostgreSQL full-text search (ts_rank_cd)
   ├── pgvector (cosine, all-MiniLM-L6-v2)
   └── Reciprocal Rank Fusion
         └── ms-marco-MiniLM-L-6-v2 (cross encoder rerank)
@@ -32,7 +32,7 @@ Query
 | Frontend | Next.js 16, Tailwind CSS v4, React Markdown |
 | API | FastAPI, async SQLAlchemy, asyncpg |
 | Vector search | pgvector (cosine similarity, 384-dim) |
-| Keyword search | Elasticsearch 8.13, BM25, English analyzer |
+| Keyword search | PostgreSQL full-text search, `websearch_to_tsquery`, English config |
 | Embeddings | all-MiniLM-L6-v2 |
 | Reranking | ms-marco-MiniLM-L-6-v2 |
 | LLM | Claude tool use agentic loop |
@@ -71,7 +71,6 @@ POSTGRES_PASSWORD=basiniq
 POSTGRES_DB=basiniq
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
-ELASTICSEARCH_URL=http://elasticsearch:9200
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -106,7 +105,6 @@ Set these environment variables in Railway:
 
 ```
 ANTHROPIC_API_KEY=...
-ELASTICSEARCH_URL=...
 ALLOWED_ORIGINS=https://your-frontend.vercel.app
 DATABASE_URL=...
 ```
